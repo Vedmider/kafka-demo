@@ -1,0 +1,30 @@
+server:
+  port: 8082
+
+app:
+  consumer:
+    group-id: kafka-demo-consumers     # the consumer group; run 2 instances to watch rebalancing
+
+spring:
+  application:
+    name: kafka-demo-consumer
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:                         # needed by the DLT publisher (and the tests)
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ${app.consumer.group-id}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: io.github.vedmider.kafkademo.common.OrderEvent
+        spring.json.trusted.packages: io.github.vedmider.kafkademo.common
+        spring.json.use.type.headers: false   # ignore producer type headers; use the type above
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

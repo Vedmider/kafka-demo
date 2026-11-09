@@ -1,0 +1,20 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: kafka-demo-producer
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                     # wait for all in-sync replicas — durability
+      properties:
+        enable.idempotence: true    # no duplicate records on retry (exactly-once-ish produce)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
