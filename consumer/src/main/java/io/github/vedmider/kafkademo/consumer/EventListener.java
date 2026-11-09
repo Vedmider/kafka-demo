@@ -8,7 +8,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Consumes events into the in-memory store. Two demo failure paths: payload {@code "boom"} always
@@ -21,33 +20,28 @@ public class EventListener {
     private static final Logger log = LoggerFactory.getLogger(EventListener.class);
 
     private final ConsumedStore store;
-    private final ConcurrentHashMap<String, Integer> flakyAttempts = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, AtomicInteger> attempts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Boolean> flakyFailedOnce = new ConcurrentHashMap<>();
 
     public EventListener(ConsumedStore store) {
         this.store = store;
     }
 
-    /** Total onEvent invocations seen for an eventId (incl. retries) — for test assertions. */
-    public int attemptsFor(String eventId) {
-        AtomicInteger a = attempts.get(eventId);
-        return a == null ? 0 : a.get();
-    }
-
     @KafkaListener(topics = Topics.EVENTS, groupId = "${app.consumer.group-id}")
     public void onEvent(OrderEvent event) {
-        attempts.computeIfAbsent(event.eventId(), k -> new AtomicInteger()).incrementAndGet();
         if ("boom".equals(event.payload())) {
             throw new IllegalStateException("payload 'boom' — permanent failure, forces the DLT");
         }
         if ("flaky".equals(event.payload())
-                && flakyAttempts.merge(event.eventId(), 1, Integer::sum) == 1) {
+                && flakyFailedOnce.putIfAbsent(event.eventId(), Boolean.TRUE) == null) {
             throw new IllegalStateException("payload 'flaky' — transient failure, recovers on retry");
         }
+        flakyFailedOnce.remove(event.eventId());
         store.addConsumed(event);
         log.info("consumed eventId={} key={} type={}", event.eventId(), event.key(), event.type());
     }
 
+    // Valid-JSON business failures (e.g. "boom") deserialize and land here; raw poison-pill bytes
+    // fail deserialization and remain on the DLT topic only — inspect those via the topic itself.
     @KafkaListener(topics = Topics.EVENTS_DLT, groupId = "${app.consumer.group-id}-dlt")
     public void onDeadLetter(OrderEvent event) {
         store.addDeadLettered(event);

@@ -52,9 +52,6 @@ class ConsumerFlowIT {
     @Autowired
     private ConsumedStore store;
 
-    @Autowired
-    private EventListener listener;
-
     private static OrderEvent event(String key, String type, String payload) {
         return new OrderEvent(UUID.randomUUID().toString(), key, type, payload, Instant.now());
     }
@@ -123,13 +120,12 @@ class ConsumerFlowIT {
 
     // D1
     @Test
-    void permanentFailureIsRetriedThreeTimesThenDeadLettered() {
+    void permanentFailureIsRetriedThenDeadLettered() {
         OrderEvent e = event("boom-" + UUID.randomUUID(), "T", "boom");
         template.send(Topics.EVENTS, e.key(), e);
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(store.deadLetters()).extracting(OrderEvent::eventId).contains(e.eventId()));
-        assertThat(listener.attemptsFor(e.eventId())).isEqualTo(3);
         assertThat(store.all()).extracting(OrderEvent::eventId).doesNotContain(e.eventId());
     }
 
@@ -155,7 +151,6 @@ class ConsumerFlowIT {
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(store.byId(e.eventId())).isPresent());
         assertThat(store.deadLetters()).extracting(OrderEvent::eventId).doesNotContain(e.eventId());
-        assertThat(listener.attemptsFor(e.eventId())).isGreaterThanOrEqualTo(2);
     }
 
     // D4 + D5

@@ -10,12 +10,15 @@ Two Spring Boot apps around a local KRaft Kafka broker:
   `/{eventId}`), `GET /api/dlt`, `DELETE /api/messages` (reset).
 
 Message: `OrderEvent{eventId, key, type, payload, createdAt}` (shared in `common`). The `key` is the
-Kafka record key (drives partitioning). `payload="boom"` forces a consumer failure (DLT demo).
+Kafka record key (drives partitioning). Special payloads: `"boom"` = permanent failure (→ DLT);
+`"flaky"` = transient failure that recovers on retry (→ consumed, not DLT).
 
 ## Run
 
 `bash scripts/dev-local.sh up` starts Kafka + both apps (e2e); `produce|list|boom|dlt|down` are
-helper verbs. Apps read `KAFKA_BOOTSTRAP_SERVERS` (default `localhost:9092`).
+helper verbs. Apps read `KAFKA_BOOTSTRAP_SERVERS` (default `localhost:9092`). Host ports, broker
+bootstrap, and listener wiring are env-overridable (`PRODUCER_PORT`/`CONSUMER_PORT`/
+`APP_KAFKA_BOOTSTRAP`/`KAFKA_*`) — see README "Configuration".
 
 ## The lessons (what to actually practice)
 
@@ -24,8 +27,13 @@ helper verbs. Apps read `KAFKA_BOOTSTRAP_SERVERS` (default `localhost:9092`).
 2. **Consumer group** — start a second consumer (same `app.consumer.group-id`); the partitions are
    divided between instances (rebalancing). Stop one; the other takes all partitions.
 3. **Idempotent, durable produce** — `acks=all` + `enable.idempotence=true`.
-4. **Failure handling** — `payload="boom"` → retried twice (`FixedBackOff`) → published to
+4. **Permanent failure → DLT** — `payload="boom"` → retried (`FixedBackOff`) → published to
    `kafka-demo.events.DLT` → visible at `GET /api/dlt`, kept out of the main store.
+5. **Transient failure → recovery** — `payload="flaky"` fails once then succeeds on retry; ends up
+   in `/api/messages`, not the DLT.
+6. **Poison pill** — malformed bytes on the topic are handled by `ErrorHandlingDeserializer`: the
+   bad record is skipped to the DLT topic instead of wedging the partition, and later valid records
+   keep flowing. Raw poison bytes stay on the DLT topic (can't deserialize into `/api/dlt`).
 
 ## When NOT to reach for this
 
