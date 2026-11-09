@@ -32,7 +32,7 @@ services:
       args:
         REGISTRY: ${REGISTRY:-docker.io/library}
     ports:
-      - "8081:8081"
+      - "${PRODUCER_PORT:-8081}:8081"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
     depends_on:
@@ -47,7 +47,7 @@ services:
       args:
         REGISTRY: ${REGISTRY:-docker.io/library}
     ports:
-      - "8082:8082"
+      - "${CONSUMER_PORT:-8082}:8082"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
     depends_on:

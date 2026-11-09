@@ -20,7 +20,7 @@ public class KafkaConfig {
     @Bean
     DefaultErrorHandler errorHandler(KafkaTemplate<String, OrderEvent> kafka) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafka,
-                (record, ex) -> new TopicPartition(Topics.EVENTS_DLT, record.partition()));
+                (record, ex) -> new TopicPartition(Topics.EVENTS_DLT, -1));
         // 2 retries, 500ms apart, then route to the DLT.
         return new DefaultErrorHandler(recoverer, new FixedBackOff(500L, 2L));
     }

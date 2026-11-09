@@ -35,11 +35,11 @@ public class ConsumedStore {
     }
 
     public synchronized List<OrderEvent> byKey(String key) {
-        return consumed.stream().filter(e -> e.key().equals(key)).toList();
+        return consumed.stream().filter(e -> java.util.Objects.equals(e.key(), key)).toList();
     }
 
     public synchronized Optional<OrderEvent> byId(String eventId) {
-        return consumed.stream().filter(e -> e.eventId().equals(eventId)).findFirst();
+        return consumed.stream().filter(e -> java.util.Objects.equals(e.eventId(), eventId)).findFirst();
     }
 
     public synchronized List<OrderEvent> deadLetters() {

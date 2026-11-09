@@ -46,4 +46,27 @@ class ConsumedStoreTest {
         assertThat(store.all()).isEmpty();
         assertThat(store.deadLetters()).isEmpty();
     }
+
+    @Test
+    void toleratesNullKeyAndIdWithoutThrowing() {
+        store.addConsumed(new OrderEvent(null, null, "T", "x", java.time.Instant.now()));
+        assertThat(store.byKey("a")).isEmpty();
+        assertThat(store.byId("nope")).isEmpty();
+        assertThat(store.byKey(null)).hasSize(1);
+    }
+
+    @Test
+    void concurrentAddsAndReadsDoNotCorrupt() throws InterruptedException {
+        int n = 500;
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(8);
+        for (int i = 0; i < n; i++) {
+            pool.submit(() -> {
+                store.addConsumed(OrderEvent.create("k", "T", "x"));
+                store.all();
+            });
+        }
+        pool.shutdown();
+        assertThat(pool.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        assertThat(store.all()).hasSize(n);
+    }
 }
