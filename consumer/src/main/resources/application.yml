@@ -10,6 +10,8 @@ spring:
     name: kafka-demo-consumer
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      missing-topics-fatal: false     # topic may not exist yet on a cold start; don't die, retry
     producer:                         # needed by the DLT publisher (and the tests)
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -24,6 +26,7 @@ spring:
         spring.json.value.default.type: io.github.vedmider.kafkademo.common.OrderEvent
         spring.json.trusted.packages: io.github.vedmider.kafkademo.common
         spring.json.use.type.headers: false   # ignore producer type headers; use the type above
+        metadata.max.age.ms: 5000            # refresh metadata often so a cold-start partial assignment self-heals
 
 management:
   endpoints:
